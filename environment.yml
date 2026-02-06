@@ -1,0 +1,8 @@
+name: projet7
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - ipykernel
+  - jupyter
+prefix: /opt/anaconda3/envs/projet7

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+
+# Environnements
+.env
+.venv/
+venv/
+
+# MLflow local
+mlruns/
+mlflow_artifacts/
+mlflow.db
+payload.json
+
+# OS
+.DS_Store
+
+# Datasets (ne pas versionner)
+Projet+Mise+en+prod+-+home-credit-default-risk/
+*.csv
