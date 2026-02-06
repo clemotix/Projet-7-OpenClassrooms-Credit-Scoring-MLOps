@@ -2,3 +2,4 @@ fastapi
 uvicorn
 mlflow
 numpy
+joblib
