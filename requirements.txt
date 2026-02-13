@@ -1,5 +1,8 @@
 fastapi
 uvicorn
-mlflow
 numpy
 joblib
+scikit-learn
+xgboost
+pandas
+mlflow
