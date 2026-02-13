@@ -20,3 +20,4 @@ payload.json
 # Datasets (ne pas versionner)
 Projet+Mise+en+prod+-+home-credit-default-risk/
 *.csv
+payload_api.json
