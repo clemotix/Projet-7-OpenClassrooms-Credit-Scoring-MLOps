@@ -1,23 +1,7 @@
-# Python
-__pycache__/
-.ipynb_checkpoints/
-*.pyc
-
-# Environnements
-.env
-.venv/
-venv/
-
-# MLflow local
+*.ipynb
 mlruns/
-mlflow_artifacts/
 mlflow.db
-payload.json
-
-# OS
-.DS_Store
-
-# Datasets (ne pas versionner)
-Projet+Mise+en+prod+-+home-credit-default-risk/
-*.csv
-payload_api.json
+__pycache__/
+*.pyc
+data_drift_report.html
+all_clients_ready.csv

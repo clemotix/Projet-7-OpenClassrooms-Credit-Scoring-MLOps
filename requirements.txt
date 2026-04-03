@@ -1,10 +1,9 @@
 fastapi
 uvicorn
 numpy
-joblib
+pandas
 scikit-learn
 xgboost
-pandas
+joblib
 mlflow
-pytest
 httpx

@@ -1,63 +1,87 @@
 import os
 import numpy as np
+import pandas as pd
 import joblib
-import mlflow
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
 
 # --- Config ---
-THRESHOLD = float(os.getenv("THRESHOLD", "0.088"))  # seuil métier
-LOCAL_MODEL_PATH = os.getenv("LOCAL_MODEL_PATH", "model.joblib")
-
-# Optionnel: fallback MLflow (utile en local si tu veux)
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
-MODEL_URI = os.getenv("MODEL_URI", "models:/credit_scoring_xgboost/latest")
+THRESHOLD = float(os.getenv("THRESHOLD", "0.515"))
+LOCAL_MODEL_PATH = os.getenv("LOCAL_MODEL_PATH", "api/model_xgb_final.joblib")
+CLIENTS_DATA_PATH = os.getenv("CLIENTS_DATA_PATH", "api/data/clients_render.csv")
 
 app = FastAPI(title="Credit Scoring API")
 
-class PredictRequest(BaseModel):
-    features: list[float]
-
-# --- Load model ---
 _model = None
-_model_type = None  # "joblib" or "mlflow"
+_clients_df = None
+
 
 def load_model():
-    global _model, _model_type
+    global _model
     if _model is not None:
         return
 
-    # 1) Prefer local file (Render-friendly)
-    if os.path.exists(LOCAL_MODEL_PATH):
-        _model = joblib.load(LOCAL_MODEL_PATH)
-        _model_type = "joblib"
+    if not os.path.exists(LOCAL_MODEL_PATH):
+        raise FileNotFoundError(f"Modèle introuvable : {LOCAL_MODEL_PATH}")
+
+    _model = joblib.load(LOCAL_MODEL_PATH)
+
+
+def load_clients_data():
+    global _clients_df
+    if _clients_df is not None:
         return
 
-    # 2) Fallback: MLflow registry (local only unless you host MLflow)
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    _model = mlflow.pyfunc.load_model(MODEL_URI)
-    _model_type = "mlflow"
+    if not os.path.exists(CLIENTS_DATA_PATH):
+        raise FileNotFoundError(f"Fichier introuvable : {CLIENTS_DATA_PATH}")
+
+    _clients_df = pd.read_csv(CLIENTS_DATA_PATH)
+
 
 @app.on_event("startup")
 def on_startup():
     load_model()
+    load_clients_data()
+
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_type": _model_type}
+    return {
+        "status": "ok",
+        "model_type": "joblib",
+        "n_clients": len(_clients_df) if _clients_df is not None else 0
+    }
 
-@app.post("/predict")
-def predict(req: PredictRequest):
+
+@app.get("/clients")
+def get_clients():
+    load_clients_data()
+    return {
+        "n_clients": len(_clients_df),
+        "client_ids": _clients_df["SK_ID_CURR"].tolist()
+    }
+
+
+@app.get("/predict/{client_id}")
+def predict(client_id: int):
     load_model()
-    X = np.array([req.features], dtype=float)
+    load_clients_data()
 
-    if _model_type == "joblib":
-        # XGBoost sklearn API
-        p = float(_model.predict_proba(X)[:, 1][0])
-    else:
-        # MLflow pyfunc API
-        proba = _model.predict(X)
-        p = float(np.array(proba).reshape(-1)[0])
+    client_row = _clients_df[_clients_df["SK_ID_CURR"] == client_id]
 
-    decision = int(p >= THRESHOLD)  # 1=refus, 0=accepté
-    return {"proba_default": p, "threshold": THRESHOLD, "decision": decision}
+    if client_row.empty:
+        raise HTTPException(status_code=404, detail="Client introuvable")
+
+    # Important :
+    # ton modèle actuel attend encore SK_ID_CURR dans les features,
+    # donc on garde toutes les colonnes telles quelles
+    X = client_row.astype(float)
+
+    p = float(_model.predict_proba(X)[:, 1][0])
+    decision = int(p >= THRESHOLD)
+
+    return {
+        "client_id": client_id,
+        "default_probability": round(p, 6),
+        "threshold": THRESHOLD,
+        "decision": decision
+    }
